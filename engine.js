@@ -2,6 +2,9 @@ const canvasId = "gameEngine"
 
 class GameEngine {
     entityList = [];
+    terminalVelocity = 200;
+    gravity = 0.2;
+
     constructor(canvasID) {
         this.canvas = document.getElementById(canvasID)
         this.ctx = this.canvas.getContext("2d")
@@ -15,7 +18,9 @@ class GameEngine {
         entity.canvas = this.canvas;
         entity.ctx = this.ctx;
         entity.gameEngine = this;
-
+        entity.terminalVelocity = this.terminalVelocity;
+        entity.gravity = this.gravity;
+        return entity
     }
     removeEntity(entity) {
         this.entityList.splice(this.entityList.indexOf(entity), 1);
@@ -62,7 +67,7 @@ class GameEngine {
 }
 
 
-
+// Constructs the base game entity 
 class Entity {
     dx = 0
     dy = 0
@@ -77,11 +82,6 @@ class Entity {
     canvas = null
     ctx = null
     collider = null;
-
-
-
-
-
 
     constructor(x, y, width, height) {
         this.x = x
@@ -127,23 +127,41 @@ class Entity {
             this.dy += this.gravity
         }
 
-        // Checks if new position collides with any other entity based on x velocity and if it does, x velocity goes to 0 
-        if (Math.abs(this.dx) > 0 && this.checkCollisionAt(this.collider.x + this.dx, this.collider.y)) {
-            this.dx = 0;
+        // Attempts to move in the x direction based on the velocity, if entity in the way then max distance moved, if no distance can be moved, x velocity goes to 0
+        if (!this.attemptToMove(this.dx, 0)) {
+            for (var i = this.dx; Math.abs(i) > 0; i = i > 0 ? i - 0.1 : i + 0.1) {
+                if (this.attemptToMove(i, 0)) {
+                    this.dx = 0;
+                    break;
+                }
+            }
         }
-        // Checks if new position collides with any other entity based on y velocity and if it does, y velocity goes to 0
-        if (Math.abs(this.dy) > 0 && this.checkCollisionAt(this.collider.x, this.collider.y + this.dy)) {
-            this.dy = 0;
+
+        // Attempts to move in the y direction based on the velocity, if entity in the way then max distance moved, if no distance can be moved, y velocity goes to 0
+        if (!this.attemptToMove(0, this.dy)) {
+            for (var i = this.dy; Math.abs(i) > 0; i = i > 0 ? i - 0.1 : i + 0.1) {
+                if (this.attemptToMove(0, i)) {
+                    break;
+                }
+            }
+            this.dy = 0
             this.onGround = true;
         }
-        this.x += this.dx
-        this.y += this.dy
         return this
     }
 
     // Checks if position collides with any other entity
     checkCollisionAt(x, y) {
         return this.gameEngine.checkCollisions(this.collider.createTheoriticalBoundingBox(x, y))
+    }
+
+    attemptToMove(dx, dy) {
+        if (this.checkCollisionAt(this.collider.x + dx, this.collider.y + dy)) {
+            return false
+        }
+        this.x += dx
+        this.y += dy
+        return true
     }
 
     setVelocity(dx, dy) {
@@ -198,6 +216,12 @@ class Entity {
     // Returns the entity's bounding box
     getBoundingBox() {
         return new BoundingBox(this.x, this.y, this.width, this.height)
+    }
+
+    // Sets the value of hasGravity
+    setHasGravity(hasGravity) {
+        this.hasGravity = hasGravity
+        return this
     }
 }
 
@@ -329,25 +353,38 @@ class Player extends Sprite {
 
         // Player control checks
         if (this.rightDown && this.x < this.canvas.width - this.width) {
-            // Checks if the player will collide with any other entity 
-            if (!this.checkCollisionAt(this.x + this.playerSpeed, this.y)) {
-                this.x += this.playerSpeed;
+            // Checks if the player will collide with any other entity and attempts to move them as much as possible
+            if (!this.attemptToMove(this.playerSpeed, 0)) {
+                for (var i = this.playerSpeed; i > 0; i--) {
+                    if (this.attemptToMove(i, 0)) {
+                        break;
+                    }
+                }
             }
         }
         if (this.leftDown && this.x > 0) {
-            // Checks if the player will collide with any other entity
-            if (!this.checkCollisionAt(this.x - this.playerSpeed, this.y)) {
-                this.x -= this.playerSpeed;
+            // Checks if the player will collide with any other entity and attempts to move them as much as possible
+            if (!this.attemptToMove(-this.playerSpeed, 0)) {
+                for (var i = -this.playerSpeed; i < 0; i++) {
+                    if (this.attemptToMove(i, 0)) {
+                        break;
+                    }
+                }
             }
         }
         if (this.upDown && this.y > 0 && this.canJump) {
             this.addYForce(-this.jumpVelocity);
             this.canJump = false;
         }
+        // Falls faster 
         if (this.downDown && this.y < this.canvas.height - this.height) {
-            // Checks if the player will collide with any other entity
-            if (!this.checkCollisionAt(this.x, this.y + this.playerSpeed)) {
-                this.y += this.playerSpeed;
+            // Checks if the player will collide with any other entity and attempts to move them as much as possible
+            if (!this.attemptToMove(0, this.playerSpeed)) {
+                for (var i = this.playerSpeed; i > 0; i--) {
+                    if (this.attemptToMove(0, i)) {
+                        break;
+                    }
+                }
             }
         }
         // If the player is on the ground then the jump button can be pressed again
@@ -363,8 +400,11 @@ class Player extends Sprite {
 
 
 
+
+
+
 test = new GameEngine(canvasId)
 var testImg = document.getElementById("testies")
 console.log(testImg)
 test.addEntity(new Player(0, 0, 50, 150, testImg).setVelocity(1, 0))
-test.addEntity(new Rectangle(50, 500, 500, 50, "#FFF"))
+test.addEntity(new Rectangle(100, 500, 500, 50, "#FFF").setHasGravity(false))
