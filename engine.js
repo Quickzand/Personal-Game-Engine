@@ -70,7 +70,7 @@ class Entity {
     ddy = 0
     gravity = 0.1
     jumpHeight = 1
-    jumpVelocity = 0.5
+    jumpVelocity = 2
     hasGravity = true
     terminalVelocity = 2
     onGround = false
@@ -128,17 +128,22 @@ class Entity {
         }
 
         // Checks if new position collides with any other entity based on x velocity and if it does, x velocity goes to 0 
-        if (Math.abs(this.dx) > 0 && this.gameEngine.checkCollisions(this.collider.createTheoriticalBoundingBox(this.collider.x + this.dx, this.collider.y))) {
+        if (Math.abs(this.dx) > 0 && this.checkCollisionAt(this.collider.x + this.dx, this.collider.y)) {
             this.dx = 0;
         }
         // Checks if new position collides with any other entity based on y velocity and if it does, y velocity goes to 0
-        if (Math.abs(this.dy) > 0 && this.gameEngine.checkCollisions(this.collider.createTheoriticalBoundingBox(this.collider.x, this.collider.y + this.dy))) {
+        if (Math.abs(this.dy) > 0 && this.checkCollisionAt(this.collider.x, this.collider.y + this.dy)) {
             this.dy = 0;
             this.onGround = true;
         }
         this.x += this.dx
         this.y += this.dy
         return this
+    }
+
+    // Checks if position collides with any other entity
+    checkCollisionAt(x, y) {
+        return this.gameEngine.checkCollisions(this.collider.createTheoriticalBoundingBox(x, y))
     }
 
     setVelocity(dx, dy) {
@@ -262,6 +267,7 @@ class Sprite extends Entity {
     }
     draw(ctx) {
         ctx.drawImage(this.image, this.x, this.y, this.width, this.height)
+        // console.log("im here bb")
     }
 }
 
@@ -278,12 +284,12 @@ class Circle extends Entity {
     }
 }
 
-class Player extends Rectangle {
+class Player extends Sprite {
     playerSpeed = 5
     canJump = true
 
-    constructor(x, y, width, height, color) {
-        super(x, y, width, height, color)
+    constructor(x, y, width, height, image) {
+        super(x, y, width, height, image)
         window.addEventListener("keydown", (e) => {
             if (e.key == "a") {
                 this.leftDown = true;
@@ -320,19 +326,31 @@ class Player extends Rectangle {
         if (this.leftDown || this.rightDown) {
             this.setXVelocity(0)
         }
+
+        // Player control checks
         if (this.rightDown && this.x < this.canvas.width - this.width) {
-            this.x += this.playerSpeed;
+            // Checks if the player will collide with any other entity 
+            if (!this.checkCollisionAt(this.x + this.playerSpeed, this.y)) {
+                this.x += this.playerSpeed;
+            }
         }
         if (this.leftDown && this.x > 0) {
-            this.x -= this.playerSpeed;
+            // Checks if the player will collide with any other entity
+            if (!this.checkCollisionAt(this.x - this.playerSpeed, this.y)) {
+                this.x -= this.playerSpeed;
+            }
         }
         if (this.upDown && this.y > 0 && this.canJump) {
             this.addYForce(-this.jumpVelocity);
             this.canJump = false;
         }
         if (this.downDown && this.y < this.canvas.height - this.height) {
-            this.y += this.playerSpeed;
+            // Checks if the player will collide with any other entity
+            if (!this.checkCollisionAt(this.x, this.y + this.playerSpeed)) {
+                this.y += this.playerSpeed;
+            }
         }
+        // If the player is on the ground then the jump button can be pressed again
         this.onGround ? this.canJump = true : null;
         return this
     }
@@ -346,5 +364,7 @@ class Player extends Rectangle {
 
 
 test = new GameEngine(canvasId)
-test.addEntity(new Player(0, 0, 50, 150, "#FFF").setVelocity(1, 0))
+var testImg = document.getElementById("testies")
+console.log(testImg)
+test.addEntity(new Player(0, 0, 50, 150, testImg).setVelocity(1, 0))
 test.addEntity(new Rectangle(50, 500, 500, 50, "#FFF"))
